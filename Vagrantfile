@@ -12,9 +12,9 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://atlas.hashicorp.com/search.
-  config.vm.box = "ubuntu/xenial64"
+  config.vm.box = "archlinux/archlinux"
 
-   config.vm.network "private_network", ip: "192.168.50.4"
+  config.vm.network "private_network", type: "dhcp"
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
   # Example for VirtualBox:
@@ -40,23 +40,29 @@ Vagrant.configure("2") do |config|
   # Enable provisioning with a shell script. Additional provisioners such as
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
+
   config.vm.provision "shell", inline: <<-SHELL
-    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 0C49F3730359A14518585931BC711F9BA15703C6
-    echo "deb [ arch=amd64,arm64 ] http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/3.4 multiverse" >> /etc/apt/sources.list.d/mongodb-org-3.4.list
-    apt-get update
-    apt-get install -y nodejs npm git mongodb-org ruby
-    ln -s /usr/bin/nodejs /usr/bin/node # fix node name
-    # git config
-    git config --global user.email "bprecyclebin@gmail.com"
-    git config --global user.name "bernardpaulus"
-    git config --global push.default simple
+    set -e
+
+    # require ip to be printed on login
+    ! grep 'ip addr show dev eth1' /home/vagrant/.bashrc && echo "ip addr show dev eth1  | perl -ne 'if (/inet (.*) brd/) { print \\\"eth1: ip: \\\$1\\\\n\\\" }'" >> /home/vagrant/.bashrc
+
+    pacman -Sy
+    pacman --noconfirm -S nodejs npm git mongodb mongodb-tools ruby gcc make
+    export PATH="$PATH:$(ruby -rubygems -e "puts Gem.user_dir")/bin"
+    ! grep 'export PATH' /home/vagrant/.bashrc && echo 'export PATH="$PATH:$(ruby -rubygems -e "puts Gem.user_dir")/bin"' >> /home/vagrant/.bashrc
+
     gem install sass
+
+    su vagrant -c "git config --global user.email 'bprecyclebin@gmail.com'"
+    su vagrant -c "git config --global user.name 'bernardpaulus'"
+    su vagrant -c "git config --global push.default simple"
 
     npm install -g bower
     npm install -g grunt-cli
     npm install -g yo
     npm install -g generator-meanjs
 
-    ( sleep 10 ; nohup service mongod start > /tmp/mongod_start_nohup.log ) & 
+    systemctl start mongodb.service
   SHELL
 end
